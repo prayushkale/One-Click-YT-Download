@@ -1,4 +1,5 @@
 API_KEY = 'AIzaSyDMZhWcO4wf5Oer9jSnisITImYkEOwgLEc'
+VOICE_LANGUAGE = 'English'
 
 import os
 import sys
@@ -238,7 +239,7 @@ def download_audio(url, download_folder, video_index):
     
 def exit():
     print("\nExiting.....")
-    time.sleep(3)
+    time.sleep(2)
     sys.exit()
 
 if __name__ == '__main__':
@@ -341,7 +342,7 @@ if __name__ == '__main__':
                 print("\nTranscribing ...\n")
 
                 # Process audio to text
-                command = f'whisper "{audio_folder}\\{mp3_filename}" --model medium --device cuda --language Hindi --task translate --output_dir "{json_folder}" --output_format json'
+                command = f'whisper "{audio_folder}\\{mp3_filename}" --model medium --device cuda --language {VOICE_LANGUAGE} --task translate --output_dir "{json_folder}" --output_format json'
                 # Execute the command using subprocess
                 subprocess.run(command, shell=True, check=True)
 
