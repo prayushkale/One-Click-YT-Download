@@ -5,9 +5,13 @@ import sys
 import subprocess
 import requests
 import time
+import json
 import yt_dlp
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+save_data = []
+save_filename = "save.json"
 
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
@@ -22,6 +26,45 @@ def create_folder(folder_name):
             print(f"Folder '{folder_name}' already exists.")
     except OSError as error:
         print(f"Error creating folder '{folder_name}': {error}")
+
+def save_to_json(filename, data):
+    with open(filename, 'w') as file:
+        json.dump(data, file, indent=4)
+    print(f"\nProgress saved to {save_filename} File")
+
+def read_from_json(filename):
+    try:
+        with open(filename, 'r') as file:
+            loaded_data = json.load(file)
+    except Exception as e:
+        return None
+    return loaded_data
+
+def save_current_progress(channel_name, index):
+    new_data = []
+    loaded_data = read_from_json(save_filename)
+    found_channel = False
+    for data in loaded_data:
+        if data["channel_name"] == channel_name:
+            new_data.append({
+                "channel_name": channel_name,
+                "index": index
+            })
+            found_channel = True
+        else:
+            new_data.append(data)
+    if not found_channel:
+        new_data.append({
+            "channel_name": channel_name,
+            "index": index
+        })
+    save_to_json(save_filename, new_data)
+
+def find_channel_in_saved(items, channel_name):
+    for item in items:
+        if item["channel_name"] == channel_name:
+            return item
+    return None
 
 def get_channel_id(username):
     try:
@@ -213,9 +256,22 @@ if __name__ == '__main__':
         print(f"Did not find any Videos for the given Channel: {channel_username}")
         exit()
 
-    pause_1 = input("\nContinue downloading Transcripts ? Press Enter to continue, type 'exit' to Exit: ")
+    pause_1 = input("\nDownload Now ? Press Enter to continue, type 'exit' to Exit: ")
     if pause_1 == 'exit':
         exit()
+
+    progress_index = 0
+    save_data = read_from_json(save_filename)
+    if not save_data:
+        print("\nNo save file found, creating Save file now...")
+        save_to_json(save_filename, [])
+    else:
+        channel_progress = find_channel_in_saved(save_data, channel_username)
+        if channel_progress:
+            progress_index = channel_progress["index"]
+            print(f"\nFound earlier progress for Channel: {channel_username}, Index: {progress_index}. Will continue download...")
+
+    save_current_progress(channel_username, progress_index)
 
     download_option = 0
     while True:
@@ -244,48 +300,52 @@ if __name__ == '__main__':
     all_videos.reverse()
 
     for video_index, video in enumerate(all_videos):
-        print(f"Video {video_index+1}:")
+        print(f"\nVideo {video_index+1}:")
         print("\tTitle: ", video['title'])
         print("\tPublished: ", video['published_at'])
         print("\tVideo ID: ", video['video_id'])
         print("\n")
 
-        transcript = get_transcript(video['video_id'])
-        if transcript:
-            print("Transcript downloaded successfully.")
-            # Here you can process or save the transcript as needed
-            # For example, to save it to a file:
-            with open(f"{video_index+1} - {video['title']}_transcript.srt", "w", encoding="utf-8") as f:
-                f.write(transcript)
+        if (video_index + 1) > progress_index: 
+
+            video_url = "https://www.youtube.com/watch?v=" + video['video_id']
+
+            if download_option == 1 or download_option == 2:
+                print("\nDownloading Video...\n")
+                try:
+                    mp4_filename = download_video(video_url, video_folder, video_index+1)
+                except Exception as e:
+                    print("Video not available yet: ", e)
+                    continue
+                print("\nVideo Downloaded...")
+
+            if download_option == 1 or download_option == 3 or download_option == 4:
+                print("\nDownloading Audio...\n")
+                try:
+                    mp3_filename = download_audio(video_url, audio_folder, video_index+1)
+                except Exception as e:
+                    print("Video not available yet: ", e)
+                    continue
+                print("\nAudio Downloaded...")
+
+            if download_option == 1 or download_option == 4:
+                transcript = get_transcript(video['video_id'])
+                if transcript:
+                    print("Transcript downloaded successfully.")
+                    with open(f"{video_index+1} - {video['title']}_transcript.srt", "w", encoding="utf-8") as f:
+                        f.write(transcript)
+                else:
+                    print("Failed to download transcript.")
+
+                print("\nExtracting from Audio...")
+                print("\nTranscribing ...\n")
+
+                # Process audio to text
+                command = f'whisper "{audio_folder}\\{mp3_filename}" --model medium --device cuda --language Hindi --task translate --output_dir "{json_folder}" --output_format json'
+                # Execute the command using subprocess
+                subprocess.run(command, shell=True, check=True)
+
+            save_current_progress(channel_username, video_index+1)
+        
         else:
-            print("Failed to download transcript.")
-
-        print("\nExtracting from Audio...")
-
-        video_url = "https://www.youtube.com/watch?v=" + video['video_id']
-
-        if download_option == 1 or download_option == 2:
-            print("\nDownloading Video...\n")
-            try:
-                mp4_filename = download_video(video_url, video_folder, video_index+1)
-            except Exception as e:
-                print("Video not available yet: ", e)
-                continue
-            print("\nVideo Downloaded...")
-
-        if download_option == 1 or download_option == 3 or download_option == 4:
-            print("\nDownloading Audio...\n")
-            try:
-                mp3_filename = download_audio(video_url, audio_folder, video_index+1)
-            except Exception as e:
-                print("Video not available yet: ", e)
-                continue
-            print("\nAudio Downloaded...")
-
-        if download_option == 1 or download_option == 4:
-            print("\nTranscribing ...\n")
-
-            # Process audio to text
-            command = f'whisper "{audio_folder}\\{mp3_filename}" --model medium --device cuda --language Hindi --task translate --output_dir "{json_folder}" --output_format json'
-            # Execute the command using subprocess
-            subprocess.run(command, shell=True, check=True)
+            print("\nSkipping Video: ", video_index+1)
