@@ -2,6 +2,9 @@
 
 ## Setup instructions
 
+- Get Google API Key: 
+  - Follow instructions here: https://developers.google.com/youtube/v3/getting-started
+
 1. Install Python: https://www.python.org/downloads/release/python-3109/
 
 2. Download and Setup yt-dlp: https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#installation

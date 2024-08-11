@@ -1,4 +1,4 @@
-API_KEY = 'AIzaSyDMZhWcO4wf5Oer9jSnisITImYkEOwgLEc'
+API_KEY = ''
 VOICE_LANGUAGE = 'English'
 
 import os
