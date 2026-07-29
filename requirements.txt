@@ -1,0 +1,4 @@
+requests>=2.32
+yt-dlp>=2025.10
+google-api-python-client>=2.198
+openai-whisper>=20240930
